@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "name": "mongodb-docs-download",
+  "scripts": {
+    "download-docs": "node src/download-docs.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.6",
+    "axios": "^0.21.1"
+  }
+}
