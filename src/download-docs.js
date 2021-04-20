@@ -7,7 +7,7 @@ const sanitizeFileNameLibrary = require('sanitize-filename');
 const HOST = 'https://docs.mongodb.com';
 const INDEX = `${HOST}/manual/`;
 const CSS_URL = `${HOST}/manual/docs-tools/mongodb-docs.css`;
-const PAGE_SCRAPE_LIMIT = 1000;
+const PAGE_SCRAPE_LIMIT = 5000;
 
 async function getPageContent(url) {
     console.log('Fetching', url);
