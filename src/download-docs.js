@@ -35,7 +35,7 @@ function sanitizeFileName(text) {
 
     const css = await getPageContent(CSS_URL);
 
-    const chapterLinks = indexCheerio('.sidebar .current .reference').map((_, a) => a.attribs.href).toArray(); // We do things in chapters to handle cycles in their docs.
+    const chapterLinks = indexCheerio('.sidebar .current .reference').map((_, a) => `${HOST}${a.attribs.href}`).toArray(); // We do things in chapters to handle cycles in their docs.
 
     let nextPageUrl = INDEX;
     let chapterName = '';
@@ -46,7 +46,8 @@ function sanitizeFileName(text) {
     while (nextPageUrl && depth <= PAGE_SCRAPE_LIMIT) {
         if (chapterLinks.includes(nextPageUrl)) { // is this jumping to the next chapter?
             Visited = [];
-            chapterName = sanitizeFileName(nextPageUrl);
+            const chapterUrlRelative = nextPageUrl.replace(HOST, '');
+            chapterName = sanitizeFileName(chapterUrlRelative);
             if (VisitedChapters.includes(chapterName)) {
                 throw new Error('Chapter cycle detected! Do not know how to handle! Chapter list: ' + JSON.stringify(VisitedChapters, null, '    '));
             }
