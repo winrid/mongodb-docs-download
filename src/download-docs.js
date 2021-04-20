@@ -2,6 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const path = require('path');
 const fs = require('fs');
+const sanitizeFileNameLibrary = require('sanitize-filename');
 
 const HOST = 'https://docs.mongodb.com';
 const INDEX = `${HOST}/manual/`;
@@ -14,10 +15,14 @@ async function getPageContent(url) {
 }
 
 function sanitizeFileName(text) {
-    return text.replace('Magnifying Glass Icon', '')
+    if (text.startsWith('/')) {
+        text = text.substring(1);
+    }
+    return sanitizeFileNameLibrary(text.replace('Magnifying Glass Icon', '')
         .replace(new RegExp('/', 'g'), '-')
+        .replace(new RegExp(':', 'g'), '-')
         .replace(new RegExp('--', 'g'), '-')
-        .replace(new RegExp('"', 'g'), '');
+        .replace(new RegExp('"', 'g'), ''));
 }
 
 (async function main() {
@@ -47,11 +52,13 @@ function sanitizeFileName(text) {
     }).toArray(); // We do things in chapters to handle cycles in their docs.
 
     const JumpMap = {
-        [`${HOST}/faq`]: `${HOST}/manual/faq/fundamentals/`, // /faq will 404...
-        [`${HOST}/release-notes`]: `${HOST}/manual/release-notes/${version}/` // /release-notes will 404...
+        [`${HOST}/faq`]: `${HOST}/manual/faq/fundamentals/`, // will 404...
+        [`${HOST}/release-notes`]: `${HOST}/manual/release-notes/${version}/`, // will 404...
+        [`${HOST}/reference`]: `${HOST}/manual/reference/operator/query/` // will 404...
     };
 
-    let nextPageUrl = INDEX;
+    // let nextPageUrl = INDEX;
+    let nextPageUrl = `${HOST}/faq`;
     let chapterName = '';
     let chapterIndex = 0;
     let depth = 1;
@@ -66,9 +73,6 @@ function sanitizeFileName(text) {
                 throw new Error('Could not skip to next chapter, at end!');
             }
             nextPageUrl = chapterLinks[chapterIndex];
-            if (JumpMap[nextPageUrl]) {
-                nextPageUrl = JumpMap[nextPageUrl];
-            }
             console.log('Jumping to', nextPageUrl);
             const chapterUrlRelative = nextPageUrl.replace(HOST, '');
             chapterName = sanitizeFileName(chapterUrlRelative);
@@ -79,24 +83,24 @@ function sanitizeFileName(text) {
             }
         } else if (chapterLinks.includes(nextPageUrl)) { // is this jumping to another chapter? force it to be the next one to prevent cycles.
             Visited = [];
+            chapterIndex++;
+            if (chapterIndex > chapterLinks.length - 1) {
+                throw new Error('Could not skip to next chapter, at end!');
+            }
             const chapterUrlRelative = nextPageUrl.replace(HOST, '');
             chapterName = sanitizeFileName(chapterUrlRelative);
             console.log('Next chapter', chapterName, 'from', nextPageUrl);
-            chapterIndex++;
             if (VisitedChapters.includes(chapterName)) {
                 console.warn(`Chapter cycle detected at ${nextPageUrl}! Will skip to next chapter! Chapter list: ${JSON.stringify(VisitedChapters, null, '    ')}`);
-                if (chapterIndex > chapterLinks.length - 1) {
-                    throw new Error('Could not skip to next chapter, at end!');
-                }
                 const skipTo = chapterLinks[chapterIndex];
                 console.warn('Jumping to', skipTo);
                 nextPageUrl = skipTo;
-                if (JumpMap[nextPageUrl]) {
-                    nextPageUrl = JumpMap[nextPageUrl];
-                }
             } else {
                 VisitedChapters.push(chapterName);
             }
+        }
+        if (JumpMap[nextPageUrl]) {
+            nextPageUrl = JumpMap[nextPageUrl];
         }
         if (depth === PAGE_SCRAPE_LIMIT) {
             throw new Error(`Page scrape limit of ${PAGE_SCRAPE_LIMIT} Reached! Increase the constant to keep going.`);
