@@ -16,6 +16,7 @@ async function getPageContent(url) {
 function sanitizeFileName(text) {
     return text.replace('Magnifying Glass Icon', '')
         .replace(new RegExp('/', 'g'), '-')
+        .replace(new RegExp('--', 'g'), '-')
         .replace(new RegExp('"', 'g'), '');
 }
 
@@ -35,23 +36,67 @@ function sanitizeFileName(text) {
 
     const css = await getPageContent(CSS_URL);
 
-    const chapterLinks = indexCheerio('.sidebar .current .reference').map((_, a) => `${HOST}${a.attribs.href}`).toArray(); // We do things in chapters to handle cycles in their docs.
+    // TODO could DFS sidebar links to reduce a lot of complexity here.
+
+    const chapterLinks = indexCheerio('.sidebar .current .reference').map((_, a) => {
+        let href = a.attribs.href;
+        if (!href.startsWith('/')) {
+            href = '/' + href;
+        }
+        return `${HOST}${href}`;
+    }).toArray(); // We do things in chapters to handle cycles in their docs.
+
+    const JumpMap = {
+        [`${HOST}/faq`]: `${HOST}/manual/faq/fundamentals/`, // /faq will 404...
+        [`${HOST}/release-notes`]: `${HOST}/manual/release-notes/${version}/` // /release-notes will 404...
+    };
 
     let nextPageUrl = INDEX;
     let chapterName = '';
+    let chapterIndex = 0;
     let depth = 1;
     let Visited = [];
     const VisitedChapters = [];
 
     while (nextPageUrl && depth <= PAGE_SCRAPE_LIMIT) {
-        if (chapterLinks.includes(nextPageUrl)) { // is this jumping to the next chapter?
+        if (Visited.includes(nextPageUrl)) { // on cycle detect, just jump to next chapter (TODO hack!)
             Visited = [];
+            chapterIndex++;
+            if (chapterIndex > chapterLinks.length - 1) {
+                throw new Error('Could not skip to next chapter, at end!');
+            }
+            nextPageUrl = chapterLinks[chapterIndex];
+            if (JumpMap[nextPageUrl]) {
+                nextPageUrl = JumpMap[nextPageUrl];
+            }
+            console.log('Jumping to', nextPageUrl);
             const chapterUrlRelative = nextPageUrl.replace(HOST, '');
             chapterName = sanitizeFileName(chapterUrlRelative);
             if (VisitedChapters.includes(chapterName)) {
-                throw new Error('Chapter cycle detected! Do not know how to handle! Chapter list: ' + JSON.stringify(VisitedChapters, null, '    '));
+                console.warn(`Chapter cycle detected at ${nextPageUrl}! Will skip to next chapter! Chapter list: ${JSON.stringify(VisitedChapters, null, '    ')}`);
+            } else {
+                VisitedChapters.push(chapterName);
             }
-            VisitedChapters.push(chapterName);
+        } else if (chapterLinks.includes(nextPageUrl)) { // is this jumping to another chapter? force it to be the next one to prevent cycles.
+            Visited = [];
+            const chapterUrlRelative = nextPageUrl.replace(HOST, '');
+            chapterName = sanitizeFileName(chapterUrlRelative);
+            console.log('Next chapter', chapterName, 'from', nextPageUrl);
+            chapterIndex++;
+            if (VisitedChapters.includes(chapterName)) {
+                console.warn(`Chapter cycle detected at ${nextPageUrl}! Will skip to next chapter! Chapter list: ${JSON.stringify(VisitedChapters, null, '    ')}`);
+                if (chapterIndex > chapterLinks.length - 1) {
+                    throw new Error('Could not skip to next chapter, at end!');
+                }
+                const skipTo = chapterLinks[chapterIndex];
+                console.warn('Jumping to', skipTo);
+                nextPageUrl = skipTo;
+                if (JumpMap[nextPageUrl]) {
+                    nextPageUrl = JumpMap[nextPageUrl];
+                }
+            } else {
+                VisitedChapters.push(chapterName);
+            }
         }
         if (depth === PAGE_SCRAPE_LIMIT) {
             throw new Error(`Page scrape limit of ${PAGE_SCRAPE_LIMIT} Reached! Increase the constant to keep going.`);
