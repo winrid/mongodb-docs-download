@@ -13,7 +13,11 @@ async function getPageContent(url) {
     return (await axios.get(url)).data;
 }
 
-const Visited = [];
+function sanitizeFileName(text) {
+    return text.replace('Magnifying Glass Icon', '')
+        .replace(new RegExp('/', 'g'), '-')
+        .replace(new RegExp('"', 'g'), '');
+}
 
 (async function main() {
     const indexContent = await getPageContent(INDEX);
@@ -31,13 +35,23 @@ const Visited = [];
 
     const css = await getPageContent(CSS_URL);
 
-    // const sidebarUrls =
-    const chapterLinks = []; // We do things in chapters to handle cycles in their docs.
+    const chapterLinks = indexCheerio('.sidebar .current .reference').map((_, a) => a.attribs.href).toArray(); // We do things in chapters to handle cycles in their docs.
 
     let nextPageUrl = INDEX;
+    let chapterName = '';
     let depth = 1;
+    let Visited = [];
+    const VisitedChapters = [];
 
     while (nextPageUrl && depth <= PAGE_SCRAPE_LIMIT) {
+        if (chapterLinks.includes(nextPageUrl)) { // is this jumping to the next chapter?
+            Visited = [];
+            chapterName = sanitizeFileName(nextPageUrl);
+            if (VisitedChapters.includes(chapterName)) {
+                throw new Error('Chapter cycle detected! Do not know how to handle! Chapter list: ' + JSON.stringify(VisitedChapters, null, '    '));
+            }
+            VisitedChapters.push(chapterName);
+        }
         if (depth === PAGE_SCRAPE_LIMIT) {
             throw new Error(`Page scrape limit of ${PAGE_SCRAPE_LIMIT} Reached! Increase the constant to keep going.`);
         }
@@ -48,13 +62,9 @@ const Visited = [];
         const contentCheerio = cheerio.load(content);
         const contentBodyHTML = cheerio.html(contentCheerio('#main-column .body section'));
         const contentBodyHTMLWithStyles = `<style>${css}</style>${contentBodyHTML}`;
-        const title = contentCheerio('title')
-            .text()
-            .replace('Magnifying Glass Icon', '')
-            .replace(new RegExp('/', 'g'), '-')
-            .replace(new RegExp('"', 'g'), '');
+        const title = sanitizeFileName(contentCheerio('title').text());
 
-        const targetFileName = `${depth}-${title}.html`;
+        const targetFileName = `${depth}-${chapterName}-${title}.html`;
         console.log('Saving', targetFileName);
         fs.writeFileSync(path.join(targetDir, targetFileName), contentBodyHTMLWithStyles, 'utf8');
 
