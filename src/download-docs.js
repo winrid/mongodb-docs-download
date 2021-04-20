@@ -57,8 +57,7 @@ function sanitizeFileName(text) {
         [`${HOST}/reference`]: `${HOST}/manual/reference/operator/query/` // will 404...
     };
 
-    // let nextPageUrl = INDEX;
-    let nextPageUrl = `${HOST}/faq`;
+    let nextPageUrl = INDEX;
     let chapterName = '';
     let chapterIndex = 0;
     let depth = 1;
@@ -110,7 +109,7 @@ function sanitizeFileName(text) {
         }
         const content = await getPageContent(nextPageUrl);
         const contentCheerio = cheerio.load(content);
-        const contentBodyHTML = cheerio.html(contentCheerio('#main-column .body section'));
+        const contentBodyHTML = cheerio.html(contentCheerio('#main-column .body section')).replace(new RegExp(`href="${HOST}`, 'g'), `href="`);
         const contentBodyHTMLWithStyles = `<style>${css}</style>${contentBodyHTML}`;
         const title = sanitizeFileName(contentCheerio('title').text());
 
