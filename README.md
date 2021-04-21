@@ -24,6 +24,8 @@ You can then read these offline, or turn them into PDF/E-Book format using a num
     npm run download-docs
     open downloads/v4.4
 
+To get on your Kindle, first use Sigil to create the epub file, and then convert the epub to Kindle format using Calibre.
+
 ### Why isn't the latest version just included in this repo?
 
 We can provide the tool, but we can't host Mongo's own docs for licensing safety.
