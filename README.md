@@ -1,5 +1,11 @@
 # mongodb-docs-download
 
+#### Note - Documentation Available to Download from MongoDB!
+
+You can now download an epub of the Mongo docs here: https://docs.mongodb.com/v4.4/mongodb-manual-master.epub
+
+Old documentation is available here: http://dl.mongodb.org/dl/docs/
+
 ### What is This?
 Mongo stopped providing their documentation in PDF format.
 
